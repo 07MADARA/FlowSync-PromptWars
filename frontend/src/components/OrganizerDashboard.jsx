@@ -1,4 +1,5 @@
-import { AlertTriangle, TrendingUp, Users, Activity, ScanLine } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { AlertTriangle, TrendingUp, Users, Activity, ScanLine, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -9,6 +10,25 @@ export default function OrganizerDashboard({ densities, history }) {
   const totalCapacity = densities?.reduce((acc, curr) => acc + curr.max_capacity, 0) || 0;
   const currentTotal = densities?.reduce((acc, curr) => acc + curr.current_occupancy, 0) || 0;
   const overallDensity = totalCapacity > 0 ? (currentTotal / totalCapacity) * 100 : 0;
+
+  const [insight, setInsight] = useState("Awaiting remote neural uplink...");
+
+  useEffect(() => {
+    const fetchInsight = async () => {
+      try {
+        const res = await fetch('http://127.0.0.1:8000/insights');
+        if (res.ok) {
+          const data = await res.json();
+          setInsight(data.insight);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    fetchInsight();
+    const interval = setInterval(fetchInsight, 30000); // Poll every 30s
+    return () => clearInterval(interval);
+  }, []);
 
   // Recharts styling
   const ZONE_COLORS = {
@@ -55,6 +75,29 @@ export default function OrganizerDashboard({ densities, history }) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* AI Smart Crowd Insights */}
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass-panel p-6 rounded-2xl border border-purple-500/30 shadow-[0_0_20px_rgba(168,85,247,0.15)] relative overflow-hidden group"
+      >
+        <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 to-transparent"></div>
+        <div className="flex gap-4 items-start relative z-10">
+          <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-500/20">
+            <Sparkles className="text-purple-400" size={24} />
+          </div>
+          <div>
+            <h3 className="text-purple-400 font-bold tracking-widest uppercase text-xs mb-1 flex items-center gap-2">
+              Gemini AI Strategic Insight
+              <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></span>
+            </h3>
+            <p className="text-slate-200 text-sm font-medium leading-relaxed drop-shadow-sm transition-all duration-500 ease-in-out">
+              {insight}
+            </p>
+          </div>
+        </div>
+      </motion.div>
 
       {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">

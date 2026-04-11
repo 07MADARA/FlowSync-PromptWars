@@ -9,7 +9,14 @@ from pydantic import BaseModel, Field
 import random
 import os
 import heapq
+import google.generativeai as genai
+from dotenv import load_dotenv
 from typing import List, Dict
+
+load_dotenv()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 ZONES: List[str] = ["Gates", "Concourse_A", "Concourse_B", "Food_Court", "Seating"]
 
@@ -41,6 +48,10 @@ class RouteResponse(BaseModel):
     """Data model for returning the optimal calculated traversal path."""
     route: List[str] = Field(..., description="Sequential list of zones forming the route.")
     total_cost: float = Field(..., description="The aggregated temporal/density resistance cost of this route.")
+
+class InsightResponse(BaseModel):
+    """Data model returning prompt-generated tactical AI advice."""
+    insight: str = Field(..., description="2-Sentence tactical recommendation.")
 
 class HealthResponse(BaseModel):
     """Standard health ping response model."""
@@ -171,6 +182,33 @@ def get_route(start: str, end: str):
                 heapq.heappush(pq, (ncost, neighbor, path + [neighbor]))
 
     raise HTTPException(status_code=404, detail="Route not found")
+
+@app.get("/insights", response_model=InsightResponse, dependencies=[Depends(rate_limiter)])
+def get_insights():
+    """Takes current density mapping and uses Google Gemini to generate dynamic tactical logic."""
+    if not GEMINI_API_KEY:
+        return InsightResponse(insight="AI Tactical link offline. Awaiting API configuration uplink.")
+    
+    try:
+        # Build prompt from current occupancies
+        lines = []
+        for z in ZONES:
+            pct = round((current_occupancies[z] / CAPACITIES[z]) * 100)
+            lines.append(f"{z.replace('_', ' ')} is at {pct}% capacity.")
+        context = " ".join(lines)
+        
+        prompt = (f"You are the AI Command Center predicting stadium throughput. "
+                  f"The current live status is: {context}. "
+                  f"Provide a short, strict 2-sentence tactical recommendation for the stadium organizers to alleviate pressure or manage the crowd effectively. "
+                  f"Be direct and sound high-tech.")
+                  
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        response = model.generate_content(prompt)
+        insight_text = response.text.replace('\n', ' ').strip()
+        return InsightResponse(insight=insight_text)
+    except Exception as e:
+        print(f"Gemini API Error: {e}")
+        return InsightResponse(insight="Tactical systems experiencing atmospheric interference. Recommended manual observation of Concourse Sectors.")
 
 @app.get("/health", response_model=HealthResponse)
 def health():
