@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+venv/
+env/
+.venv/
+__pycache__/
+*.pyc
+
+# Builds
+dist/
+dist-ssr/
+build/
+
+# Envs
+.env
+.env.local
+
+# System
+.DS_Store
+Thumbs.db
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
