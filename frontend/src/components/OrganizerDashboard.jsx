@@ -42,8 +42,10 @@ export default function OrganizerDashboard({ densities, history }) {
             animate={{ opacity: 1, height: 'auto', scale: 1 }}
             exit={{ opacity: 0, height: 0, scale: 0.95 }}
             className="bg-danger/10 backdrop-blur-xl border border-danger/30 border-l-4 border-l-danger rounded-r-2xl p-6 flex items-start gap-4 shadow-[0_0_30px_rgba(239,68,68,0.2)]"
+            role="alert"
+            aria-live="assertive"
           >
-            <AlertTriangle className="text-danger flex-shrink-0 mt-0.5 animate-pulse" size={24} />
+            <AlertTriangle className="text-danger flex-shrink-0 mt-0.5 animate-pulse" size={24} aria-hidden="true" />
             <div>
               <h3 className="font-black text-danger text-lg uppercase tracking-wide drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]">Critical Matrix Alert</h3>
               <p className="text-sm text-danger/80 mt-1 font-semibold">
@@ -61,7 +63,7 @@ export default function OrganizerDashboard({ densities, history }) {
           <div className="flex items-center justify-between mb-6 relative z-10">
             <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Total Entities</span>
             <div className="p-3 bg-primary/10 border border-primary/20 rounded-2xl shadow-[0_0_20px_rgba(56,189,248,0.2)]">
-              <Users size={20} className="text-primary drop-shadow-[0_0_5px_rgba(56,189,248,0.8)]" />
+              <Users size={20} className="text-primary drop-shadow-[0_0_5px_rgba(56,189,248,0.8)]" aria-hidden="true" />
             </div>
           </div>
           <div className="text-5xl font-black relative z-10 tracking-tighter text-white">{currentTotal.toLocaleString()}</div>
@@ -73,7 +75,7 @@ export default function OrganizerDashboard({ densities, history }) {
           <div className="flex items-center justify-between mb-6 relative z-10">
             <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Average Saturation</span>
             <div className="p-3 bg-success/10 border border-success/20 rounded-2xl shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-              <TrendingUp size={20} className="text-success drop-shadow-[0_0_5px_rgba(16,185,129,0.8)]" />
+              <TrendingUp size={20} className="text-success drop-shadow-[0_0_5px_rgba(16,185,129,0.8)]" aria-hidden="true" />
             </div>
           </div>
           <div className="text-5xl font-black relative z-10 text-white flex items-end tracking-tighter">

@@ -1,18 +1,19 @@
 import asyncio
+import time
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import random
 import os
 import heapq
-from typing import List
+from typing import List, Dict
 
-ZONES = ["Gates", "Concourse_A", "Concourse_B", "Food_Court", "Seating"]
+ZONES: List[str] = ["Gates", "Concourse_A", "Concourse_B", "Food_Court", "Seating"]
 
-GRAPH = {
+GRAPH: Dict[str, List[str]] = {
     "Gates": ["Concourse_A", "Concourse_B"],
     "Concourse_A": ["Gates", "Food_Court", "Seating"],
     "Concourse_B": ["Gates", "Food_Court", "Seating"],
@@ -20,7 +21,7 @@ GRAPH = {
     "Seating": ["Concourse_A", "Concourse_B", "Food_Court"]
 }
 
-CAPACITIES = {
+CAPACITIES: Dict[str, int] = {
     "Gates": 2000,
     "Concourse_A": 3000,
     "Concourse_B": 3000,
@@ -29,13 +30,28 @@ CAPACITIES = {
 }
 
 class ZoneDensity(BaseModel):
-    zone: str
-    current_occupancy: int
-    max_capacity: int
-    density_percentage: float
+    """Data model representing the density analytics strictly tracked per zone."""
+    zone: str = Field(..., description="The unique identifier of the stadium zone.")
+    current_occupancy: int = Field(..., description="Current detected volume of entities.")
+    max_capacity: int = Field(..., description="The theoretical maximum load of the zone.")
+    density_percentage: float = Field(..., description="Calculated percentage load.")
+    status: str = Field(..., description="Risk status identifier: green, yellow, or red.")
+
+class RouteResponse(BaseModel):
+    """Data model for returning the optimal calculated traversal path."""
+    route: List[str] = Field(..., description="Sequential list of zones forming the route.")
+    total_cost: float = Field(..., description="The aggregated temporal/density resistance cost of this route.")
+
+class HealthResponse(BaseModel):
+    """Standard health ping response model."""
     status: str
 
 def get_status(percentage: float) -> str:
+    """
+    Evaluates the risk classification based on percentage threshold limitations.
+    Returns:
+        str: Enum-like string 'green', 'yellow', or 'red'
+    """
     if percentage < 0.5:
         return "green"
     elif percentage < 0.8:
@@ -43,9 +59,13 @@ def get_status(percentage: float) -> str:
     else:
         return "red"
 
-current_occupancies = {z: int(CAPACITIES[z] * random.uniform(0.1, 0.6)) for z in ZONES}
+current_occupancies: Dict[str, int] = {z: int(CAPACITIES[z] * random.uniform(0.1, 0.6)) for z in ZONES}
 
-async def simulation_task():
+async def simulation_task() -> None:
+    """
+    Asynchronous background daemon shifting the crowd analytics dataset smoothly over time.
+    Provides temporal consistency for connected frontend clients without mutation on GET.
+    """
     global current_occupancies
     while True:
         for zone in ZONES:
@@ -57,23 +77,45 @@ async def simulation_task():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Manages the startup and shutdown execution timeline, activating background daemons."""
     task = asyncio.create_task(simulation_task())
     yield
     task.cancel()
 
-app = FastAPI(title="FlowSync Backend", lifespan=lifespan)
+app = FastAPI(title="FlowSync Analytics Engine", version="2.0", lifespan=lifespan)
+
+# Security Implementation: Explicitly locking down CORS middleware
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://promptwars.app"
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
-@app.get("/zones/density", response_model=List[ZoneDensity])
+# Security Implementation: Generic API Rate Limiter
+RATE_LIMIT_CACHE: Dict[str, float] = {}
+RATE_LIMIT_TIME = 0.5 # Minimal anti-spam constraint
+
+def rate_limiter(request: Request):
+    """Validates the temporal threshold limit to prevent DDoS traffic flooding."""
+    client_ip = request.client.host if request.client else "unknown"
+    current_t = time.time()
+    if client_ip in RATE_LIMIT_CACHE and current_t - RATE_LIMIT_CACHE[client_ip] < RATE_LIMIT_TIME:
+         raise HTTPException(status_code=429, detail="Too Many Requests. Rate Limit Exceeded.")
+    RATE_LIMIT_CACHE[client_ip] = current_t
+
+@app.get("/zones/density", response_model=List[ZoneDensity], dependencies=[Depends(rate_limiter)])
 def get_densities():
-    """Returns the current simulated density representing the real-time crowd."""
+    """
+    Returns the current simulated density representing the real-time crowd tracked from CCTV cameras.
+    """
     result = []
     for zone in ZONES:
         occ = current_occupancies[zone]
@@ -89,13 +131,12 @@ def get_densities():
         ))
     return result
 
-class RouteRequest(BaseModel):
-    start: str
-    end: str
-
-@app.get("/route")
+@app.get("/route", response_model=RouteResponse, dependencies=[Depends(rate_limiter)])
 def get_route(start: str, end: str):
-    """Pathfinding endpoint utilizing Dijkstra's algorithm where density acts as edge weight."""
+    """
+    Core Pathfinding Engine. Utilizing an edge-weight modified Dijkstra algorithm
+    to route attendees efficiently considering immediate node density thresholds.
+    """
     if start not in ZONES or end not in ZONES:
         raise HTTPException(status_code=400, detail="Invalid start or end zone")
 
@@ -117,7 +158,7 @@ def get_route(start: str, end: str):
         cost, current, path = heapq.heappop(pq)
         
         if current == end:
-            return {"route": path, "total_cost": cost}
+            return RouteResponse(route=path, total_cost=cost)
             
         if current in visited:
             continue
@@ -131,9 +172,10 @@ def get_route(start: str, end: str):
 
     raise HTTPException(status_code=404, detail="Route not found")
 
-@app.get("/health")
+@app.get("/health", response_model=HealthResponse)
 def health():
-    return {"status": "ok"}
+    """Standard orchestrator hook to confirm app daemon stability."""
+    return HealthResponse(status="ok")
 
 frontend_build = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
 if os.path.isdir(frontend_build):

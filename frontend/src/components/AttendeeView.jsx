@@ -2,6 +2,21 @@ import { useState, useEffect } from 'react';
 import { ZONES, EDGES } from '../zones';
 import { Navigation2, Loader2, Target } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useJsApiLoader, GoogleMap } from '@react-google-maps/api';
+
+const center = { lat: 33.9534, lng: -118.3387 }; // SoFi Stadium
+
+const MAP_OPTIONS = {
+  disableDefaultUI: true,
+  gestureHandling: 'none',
+  keyboardShortcuts: false,
+  styles: [
+    { elementType: "geometry", stylers: [{ color: "#0B0F19" }] },
+    { elementType: "labels.text.stroke", stylers: [{ color: "#0B0F19" }] },
+    { elementType: "labels.text.fill", stylers: [{ color: "#38BDF8" }] },
+    { featureType: "water", stylers: [{ color: "#000000" }] }
+  ]
+};
 
 const STATUS_COLORS = {
   green: "bg-success/20 border-success text-success shadow-[0_0_20px_rgba(16,185,129,0.3)]",
@@ -55,6 +70,11 @@ export default function AttendeeView({ densities, apiUrl }) {
     }
   };
 
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
+  });
+
   return (
     <div className="p-4 sm:p-8 max-w-3xl mx-auto flex flex-col h-full gap-6">
       <div className="flex flex-col gap-2 relative z-10">
@@ -62,7 +82,14 @@ export default function AttendeeView({ densities, apiUrl }) {
         <p className="text-slate-400 text-sm font-medium">Select two points on the map to calculate the optimal path.</p>
       </div>
 
-      <div className="relative w-full aspect-square glass-panel rounded-3xl p-4 overflow-hidden border border-white/10 ring-1 ring-white/5">
+      <div className="relative w-full aspect-square glass-panel rounded-3xl p-4 overflow-hidden border border-white/10 ring-1 ring-white/5" aria-label="Interactive Stadium Map">
+        {/* Google Maps Base Layer */}
+        {isLoaded && (
+          <div className="absolute inset-0 opacity-10 pointer-events-none mix-blend-screen scale-[1.5]">
+             <GoogleMap mapContainerStyle={{ width: '100%', height: '100%' }} center={center} zoom={16} options={MAP_OPTIONS} />
+          </div>
+        )}
+        
         <div className="absolute inset-0 pattern-grid-lg opacity-40 mix-blend-overlay" />
         
         {/* Radar Sweeper */}
@@ -117,7 +144,11 @@ export default function AttendeeView({ densities, apiUrl }) {
             <motion.div 
               key={z.id}
               onClick={() => handleZoneClick(z.id)}
-              className="absolute flex flex-col items-center justify-center cursor-pointer group"
+              onKeyDown={(e) => { if (e.key === 'Enter') handleZoneClick(z.id); }}
+              role="button"
+              tabIndex={0}
+              aria-label={`Select ${z.name}. Current load is ${dData?.density_percentage.toFixed(0)}%`}
+              className="absolute flex flex-col items-center justify-center cursor-pointer group focus:outline-none focus:ring-4 focus:ring-primary rounded-full"
               style={{ left: `${z.x}%`, top: `${z.y}%`, zIndex: 10 }}
               initial={{ scale: 0, opacity: 0, x: "-50%", y: "-50%" }}
               animate={{ scale: scaleVal, opacity: 1, x: "-50%", y: "-50%" }}
@@ -157,9 +188,10 @@ export default function AttendeeView({ densities, apiUrl }) {
       <motion.div 
         layout
         className="glass-panel rounded-2xl p-6 flex-1 z-10"
+        aria-live="polite"
       >
         <h3 className="font-bold text-xl mb-4 flex items-center gap-3 text-white">
-          <Target className="text-primary" /> Flow Routing
+          <Target className="text-primary" aria-hidden="true" /> Flow Routing
         </h3>
         {!startZone && !endZone && (
           <p className="text-slate-400 text-sm font-medium">Tap on a zone in the map above to set your starting location.</p>
@@ -169,7 +201,7 @@ export default function AttendeeView({ densities, apiUrl }) {
         )}
         {loadingRoute && (
           <div className="flex items-center gap-3 text-primary font-bold">
-            <Loader2 className="animate-spin" size={18} /> Calculating optimal matrix path...
+            <Loader2 className="animate-spin" size={18} aria-hidden="true" /> Calculating optimal matrix path...
           </div>
         )}
         
