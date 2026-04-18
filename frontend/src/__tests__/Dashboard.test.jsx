@@ -14,7 +14,7 @@ describe('Organizer Dashboard Tests', () => {
     render(<OrganizerDashboard densities={MOCK_DENSITIES} />);
     
     // Ensure dashboard structure renders
-    expect(screen.getByText(/Command Center/i)).toBeInTheDocument();
+    expect(screen.getByText(/Global Command/i)).toBeInTheDocument();
     
     // Check if the Mock data populated
     expect(screen.getByText('Gates')).toBeInTheDocument();
