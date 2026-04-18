@@ -1,10 +1,11 @@
 import asyncio
 import time
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi import FastAPI, HTTPException, Request, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
 import random
 import os
@@ -12,6 +13,17 @@ import heapq
 import google.generativeai as genai
 from dotenv import load_dotenv
 from typing import List, Dict
+
+security = HTTPBearer()
+
+def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    if not credentials or not credentials.credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return credentials.credentials
 
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -183,7 +195,7 @@ def get_route(start: str, end: str):
 
     raise HTTPException(status_code=404, detail="Route not found")
 
-@app.get("/insights", response_model=InsightResponse, dependencies=[Depends(rate_limiter)])
+@app.get("/insights", response_model=InsightResponse, dependencies=[Depends(rate_limiter), Depends(verify_token)])
 def get_insights():
     """Takes current density mapping and uses Google Gemini to generate dynamic tactical logic."""
     if not GEMINI_API_KEY:

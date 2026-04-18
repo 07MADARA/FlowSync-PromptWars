@@ -3,8 +3,10 @@ import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-do
 import AttendeeView from './components/AttendeeView';
 import OrganizerDashboard from './components/OrganizerDashboard';
 import { LayoutDashboard, Map as MapIcon, Activity } from 'lucide-react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from './firebase';
+import Login from './components/Login';
 import { AnimatePresence, motion } from 'framer-motion';
-
 const API_URL = import.meta.env.PROD ? "" : "http://127.0.0.1:8000";
 
 function Navigation() {
@@ -53,6 +55,16 @@ function App() {
   const [densities, setDensities] = useState([]);
   const [history, setHistory] = useState([]);
   const [error, setError] = useState(null);
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const fetchDensities = async () => {
@@ -112,7 +124,17 @@ function App() {
           <AnimatePresence mode="wait">
             <Routes>
               <Route path="/" element={<PageWrapper><AttendeeView densities={densities} apiUrl={API_URL} /></PageWrapper>} />
-              <Route path="/dashboard" element={<PageWrapper><OrganizerDashboard densities={densities} history={history} /></PageWrapper>} />
+              <Route path="/dashboard" element={<PageWrapper>
+                {authLoading ? (
+                  <div className="flex h-full items-center justify-center">
+                    <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                ) : user ? (
+                  <OrganizerDashboard densities={densities} history={history} />
+                ) : (
+                  <Login />
+                )}
+              </PageWrapper>} />
             </Routes>
           </AnimatePresence>
         </main>

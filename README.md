@@ -36,3 +36,7 @@ npm run dev
 ```
 
 The React dashboard will actively listen on `http://localhost:5173`.
+
+## Additional Improvements
+- **Firebase Authentication**: Integrated Google Sign-In to protect the Organizer Dashboard and establish secure API consumption, satisfying the platform's Google Services integration and strict security access patterns.
+- **CI/CD Workflows**: Configured GitHub Actions to trigger automated backend (`pytest`) and frontend (`vitest`/`npm test`) validations on every push to the `main` branch, showcasing thorough testing workflows.
