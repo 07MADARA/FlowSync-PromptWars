@@ -3,7 +3,6 @@ import { AlertTriangle, TrendingUp, Users, Activity, ScanLine, Sparkles } from '
 import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-import { auth } from '../firebase';
 
 export default function OrganizerDashboard({ densities, history }) {
   const highCapacityZones = densities?.filter(d => d.status === 'red') || [];
@@ -18,12 +17,7 @@ export default function OrganizerDashboard({ densities, history }) {
   useEffect(() => {
     const fetchInsight = async () => {
       try {
-        const token = auth.currentUser ? await auth.currentUser.getIdToken() : '';
-        const res = await fetch('http://127.0.0.1:8000/insights', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
+        const res = await fetch('http://127.0.0.1:8000/insights');
         if (res.ok) {
           const data = await res.json();
           setInsight(data.insight);
