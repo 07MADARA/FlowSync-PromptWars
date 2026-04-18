@@ -7,6 +7,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 import random
+import os
+import heapq
+from typing import List, Dict
+from dotenv import load_dotenv
+import google.generativeai as genai
 
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
